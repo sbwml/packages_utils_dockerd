@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=dockerd
-PKG_VERSION:=29.1.5
+PKG_VERSION:=29.2.1
 PKG_RELEASE:=1
 PKG_LICENSE:=Apache-2.0
 PKG_LICENSE_FILES:=LICENSE
@@ -10,8 +10,8 @@ PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_GIT_URL:=github.com/moby/moby
 PKG_GIT_REF:=docker-v$(PKG_VERSION)
 PKG_SOURCE_URL:=https://codeload.$(PKG_GIT_URL)/tar.gz/$(PKG_GIT_REF)?
-PKG_HASH:=b155dedd9dfd3fc3c598e2d8a6d1ead467582393a60c87ac1c59924e09ce360e
-PKG_GIT_SHORT_COMMIT:=3b01d64 # SHA1 used within the docker executables
+PKG_HASH:=4042ac63c7bb8af6c07880b8d10c82279e02ced2977a30890a4b3c729b29a937
+PKG_GIT_SHORT_COMMIT:=6bc6209 # SHA1 used within the docker executables
 
 PKG_MAINTAINER:=Gerard Ryan <G.M0N3Y.2503@gmail.com>
 
@@ -86,12 +86,26 @@ define EnsureVendoredCommit
 	)
 endef
 
+# $(1) = path to dependent package 'Makefile'
+# $(2) = dependency name (CONTAINERD / RUNC)
+define EnsureDockerfileVersion
+	( \
+		DEP_VER=$$$$( grep --only-matching --perl-regexp '(?<=PKG_VERSION:=)(.*)' "$(1)" ); \
+		VEN_VER=$$$$( grep --only-matching --perl-regexp '(?<=ARG $(2)_VERSION=v)(.*)' "$(PKG_BUILD_DIR)/Dockerfile" ); \
+		if [ "$$$${VEN_VER}" != "$$$${DEP_VER}" ]; then \
+			echo "ERROR: $(PKG_NAME) Expected 'PKG_VERSION:=$$$${VEN_VER}' in '$(1)', found 'PKG_VERSION:=$$$${DEP_VER}'"; \
+			exit 1; \
+		fi \
+	)
+endef
+
+
 define Build/Prepare
 	$(Build/Prepare/Default)
 
-	# Verify dependencies are the vendored version
-	$(call EnsureVendoredVersion,../containerd/Makefile,containerd.installer)
-	$(call EnsureVendoredVersion,../runc/Makefile,runc.installer)
+	# Verify containerd/runc versions from Dockerfile, tini from .installer
+	$(call EnsureDockerfileVersion,../containerd/Makefile,CONTAINERD)
+	$(call EnsureDockerfileVersion,../runc/Makefile,RUNC)
 	$(call EnsureVendoredVersion,../tini/Makefile,tini.installer)
 
 	# Verify CLI is the same version
